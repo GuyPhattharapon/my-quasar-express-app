@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Longan Map</title>
+
+<!-- TailwindCSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Leaflet CSS/JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+  #map { height: 100vh; }
+</style>
+</head>
+<body class="bg-gray-100">
+
+<div class="flex flex-col md:flex-row">
+  
+  <!-- FORM ZONE -->
+  <div class="w-full md:w-1/3 p-5 bg-white shadow-lg">
+    <h2 class="text-xl font-bold mb-4">เพิ่มจุดที่ต้องการ</h2>
+
+    <div class="space-y-3">
+      <input id="place" class="w-full p-2 border rounded" placeholder="Place (ชื่อสถานที่)">
+      <input id="province" class="w-full p-2 border rounded" placeholder="Province (จังหวัด)">
+      <input id="date" type="date" class="w-full p-2 border rounded">
+      <input id="lat" class="w-full p-2 border rounded" placeholder="Latitude (N.)">
+      <input id="lng" class="w-full p-2 border rounded" placeholder="Longitude (E.)">
+
+      <button onclick="addPoint()" class="bg-green-600 text-white w-full p-2 rounded shadow">Add</button>
+
+      <div class="flex gap-2 mt-4">
+        <button onclick="exportJSON()" class="bg-blue-600 text-white p-2 rounded w-full">Export JSON</button>
+        <input id="importFile" type="file" accept=".json" class="border p-2 rounded w-full" onchange="importJSON(event)">
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP ZONE -->
+  <div class="w-full md:w-2/3">
+    <div id="map"></div>
+  </div>
+</div>
+
+<script>
+// ==============================
+// GLOBAL
+// ==============================
+let map;
+let markers = [];
+let pointData = [];
+let greenIcon = new L.Icon({
+    iconUrl: "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
+});
+
+// ==============================
+// INITIAL MAP
+// ==============================
+function initMap() {
+  map = L.map("map").setView([18.8, 99.0], 8);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19
+  }).addTo(map);
+}
+
+// ==============================
+// LOAD SEED DATA (รวมจุดใหม่ที่อาจารย์ให้)
+// ==============================
+const seed = [
+  {
+    place: "บ้านของฉัน",
+    province: "ภัทรพล กิตอนันต์ 6604101362",
+    date: "2025-01-01",
+    lat: 18.940999,
+    lng: 99.026416,
+    note: "ชื่อ-สกุล-รหัส"
+  },
+];
+
+// ==============================
+// LOCAL STORAGE
+// ==============================
+function saveToLocal() {
+  localStorage.setItem("longanPoints", JSON.stringify(pointData));
+}
+
+function loadFromLocal() {
+  let data = localStorage.getItem("longanPoints");
+  if (data) {
+    pointData = JSON.parse(data);
+  } else {
+    pointData = seed;
+    saveToLocal();
+  }
+}
+
+// ==============================
+// ADD MARKER
+// ==============================
+function createMarker(obj, index) {
+  const marker = L.marker([obj.lat, obj.lng], { icon: greenIcon }).addTo(map);
+
+  marker.bindPopup(`
+    <div>
+      <b>${obj.province}-${obj.place}</b><br>
+      วันที่: ${obj.date}<br>
+      <button onclick="editPoint(${index})" class="bg-yellow-500 text-white px-2 py-1 mt-2 rounded">Edit</button>
+      <button onclick="deletePoint(${index})" class="bg-red-600 text-white px-2 py-1 mt-2 rounded">Delete</button>
+    </div>
+  `);
+
+  markers.push(marker);
+}
+
+// ==============================
+// RENDER ALL MARKERS
+// ==============================
+function renderMarkers() {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  pointData.forEach((p, i) => createMarker(p, i));
+
+  if (markers.length > 0) {
+    let group = new L.featureGroup(markers);
+    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+  }
+}
+
+// ==============================
+// ADD NEW POINT
+// ==============================
+async function addPoint() {
+  let place = document.getElementById("place").value;
+  let province = document.getElementById("province").value;
+  let date = document.getElementById("date").value;
+  let lat = document.getElementById("lat").value;
+  let lng = document.getElementById("lng").value;
+
+  if (!place || !province || !date) {
+    alert("กรอกข้อมูลให้ครบก่อน!");
+    return;
+  }
+
+  // If no lat/lng → Use Geocoding
+  if (!lat || !lng) {
+    let key = `${place}-${province}`;
+    let cached = localStorage.getItem("geo_" + key);
+
+    if (cached) {
+      let c = JSON.parse(cached);
+      lat = c.lat;
+      lng = c.lng;
+    } else {
+      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${place},${province},Thailand`;
+      let res = await fetch(url);
+      let data = await res.json();
+      if (data.length === 0) {
+        alert("ไม่พบพิกัด!");
+        return;
+      }
+      lat = data[0].lat;
+      lng = data[0].lon;
+      localStorage.setItem("geo_" + key, JSON.stringify({ lat, lng }));
+    }
+  }
+
+  pointData.push({ place, province, date, lat: parseFloat(lat), lng: parseFloat(lng) });
+  saveToLocal();
+  renderMarkers();
+}
+
+// ==============================
+// EDIT POINT
+// ==============================
+function editPoint(i) {
+  let p = pointData[i];
+  let newDate = prompt("วันที่ใหม่:", p.date);
+
+
+  pointData[i].date = newDate;
+  saveToLocal();
+  renderMarkers();
+}
+
+// ==============================
+// DELETE POINT
+// ==============================
+function deletePoint(i) {
+  if (confirm("ลบจุดนี้ใช่ไหม?")) {
+    pointData.splice(i, 1);
+    saveToLocal();
+    renderMarkers();
+  }
+}
+
+// ==============================
+// EXPORT / IMPORT JSON
+// ==============================
+function exportJSON() {
+  let blob = new Blob([JSON.stringify(pointData, null, 2)], { type: "application/json" });
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "longan_points.json";
+  a.click();
+}
+
+function importJSON(event) {
+  let file = event.target.files[0];
+  let reader = new FileReader();
+  reader.onload = function(e) {
+    pointData = JSON.parse(e.target.result);
+    saveToLocal();
+    renderMarkers();
+  };
+  reader.readAsText(file);
+}
+
+// ==============================
+// INIT
+// ==============================
+initMap();
+loadFromLocal();
+renderMarkers();
+
+</script>
+
+</body>
+</html>
