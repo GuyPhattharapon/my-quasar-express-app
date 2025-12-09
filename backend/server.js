@@ -19,12 +19,12 @@ app.get('/api/demo', (req, res) => {
  fs.appendFileSync(path.join(logsDir, 'access.log'), logMessage);
  res.json({
  git: {
- title: 'Advanced Git Workflow',
- detail: 'ใช้ branch protection บน GitHub, code review ใน PR, และ squash merge เพือ history สะอาด'
+ title: '6604101362',
+ detail: 'นายภัทรพล กิตอนันต์'
  },
  docker: {
- title: 'Advanced Docker',
- detail: 'ใช้ multi-stage build, healthcheck ใน Dockerfile, และ orchestration ด้วย Compose/Swarm'
+ title: '6604101362',
+ detail: 'นายภัทรพล กิตอนันต์'
  }
  });
 });
