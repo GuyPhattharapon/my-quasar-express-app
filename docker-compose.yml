@@ -1,0 +1,30 @@
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3000
+    ports:
+      - "8080:80"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_OPTIONS=--dns-result-order=ipv4first
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - DATABASE_URL=postgresql://postgres.ianeequavvockevhkfdn:phattharapon1@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+
+networks:
+  app-network:
+    driver: bridge
