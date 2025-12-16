@@ -4,6 +4,7 @@ import { prisma } from '../prisma';
 
 const router = Router();
 
+
 // CREATE
 router.post('/', async (req, res) => {
     try {
@@ -26,16 +27,14 @@ router.post('/', async (req, res) => {
 // READ ALL
 router.get('/', async (_req, res) => {
     try {
-        const tasks = await prisma.task.findMany({
-            orderBy: { createdAt: 'desc' },
-        });
-
+        const tasks = await prisma.task.findMany();
         res.json({ data: tasks });
     } catch (err) {
         console.error('READ ALL error:', err);
         res.status(500).json({ message: 'ไม่สามารถดึงรายการได้' });
     }
 });
+
 
 // READ ONE
 router.get('/:id', async (req, res) => {
@@ -98,5 +97,6 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ message: 'ไม่สามารถลบได้' });
     }
 });
+
 
 export default router;
